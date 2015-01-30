@@ -56,7 +56,7 @@ public class ProteinLasso {
 	
 	
 	//load the information in the peptide identification file
-	public void loadPeptideFile(BufferedDataTable data_table){
+	public void buildPeptideFile(BufferedDataTable data_table){
 	    try{
 	    	
 	    		 //load the peptide sequences;
@@ -77,7 +77,7 @@ public class ProteinLasso {
 	    		String peptide_entry  =  ((StringValue) pep_cell).getStringValue();
 	    	
 				    		Integer po = (Integer)distinct_peptide.get(peptide_entry);//the hashtable stores all the peptide sequences.
-					    	if(po==null){
+					    	if (po == null){
 					    		int pos = distinct_peptide.size();
 					    		distinct_peptide.put(peptide_entry, new Integer(pos));
 					    	}
@@ -87,7 +87,7 @@ public class ProteinLasso {
 				    
 				    
 				  //load the protein information
-				    int counter=0;
+				    int counter = 0;
 				    int seq_id=0;
 				    peptide_prob = new Hashtable<String, ArrayList<String>>(peptide_num);
 			    	row_it = data_table.iterator();
@@ -181,7 +181,7 @@ public class ProteinLasso {
 	
 	
 	//load the information in the peptide detectability file
-	public void loadDetectabilityFile(BufferedDataTable data_table){
+	public void buildDetectabilityFile(BufferedDataTable data_table){
 	    
 		try{			
 	    	RowIterator row_it = data_table.iterator();
@@ -496,10 +496,13 @@ public class ProteinLasso {
 	    }
 	}
      
-	//this funtion is for formatting long protein name (getting universal ID...)
+	//this function is for formatting long protein name (getting universal ID...)
 	static private String formattedProteinAccesion (String protein_accn){
 		      if(protein_accn.contains("|")){
-		    	  return StringUtils.substringBetween(protein_accn, "|");
+		    	  return StringUtils.substringBeforeLast(protein_accn, "|");
+		      }
+		      else if(protein_accn.contains(" ")){
+		    	  return protein_accn.trim();
 		      }
 		      else{
 		    	  return protein_accn; 

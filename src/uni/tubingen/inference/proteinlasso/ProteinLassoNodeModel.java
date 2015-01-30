@@ -84,8 +84,8 @@ public class ProteinLassoNodeModel extends NodeModel {
 
 		 ProteinLasso prolas = new ProteinLasso();
 		
-	   	 prolas.loadDetectabilityFile(inData[0]);
-		 prolas.loadPeptideFile(inData[0]);
+	   	 prolas.buildDetectabilityFile(inData[0]);
+		 prolas.buildPeptideFile(inData[0]);
 		 
 		 String tag="max";
 		 prolas.getcoef(tag);
@@ -154,7 +154,7 @@ public class ProteinLassoNodeModel extends NodeModel {
     	
     	DataColumnSpec cols[] = new DataColumnSpec[2];
     	cols[0] = new DataColumnSpecCreator("Protein ID", StringCell.TYPE).createSpec();
-    	cols[1] = new DataColumnSpecCreator("Protein Probability", StringCell.TYPE).createSpec();
+    	cols[1] = new DataColumnSpecCreator("ProteinLasso Probability", StringCell.TYPE).createSpec();
 	
       return cols;
 	}
