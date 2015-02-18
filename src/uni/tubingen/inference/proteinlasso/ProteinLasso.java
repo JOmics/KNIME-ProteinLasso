@@ -5,6 +5,7 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import org.knime.core.data.DataCell;
 import org.knime.core.data.DataRow;
+import org.knime.core.data.DoubleValue;
 import org.knime.core.data.RowIterator;
 import org.knime.core.data.RowKey;
 import org.knime.core.data.StringValue;
@@ -35,10 +36,10 @@ public class ProteinLasso {
 	
 	
 	static Hashtable<String, Integer>           distinct_peptide = new Hashtable<String, Integer>();		// the hashtable of peptide sequences
-	static Hashtable<String, ArrayList<String>> peptide_prob = new Hashtable<String, ArrayList<String>>();			// the hashtable of peptide probabilities 
+	static Hashtable<String, ArrayList<Double>> peptide_prob = new Hashtable<String, ArrayList<Double>>();			// the hashtable of peptide probabilities 
 	static Hashtable<String, ArrayList<String>> distinct_protein = new Hashtable<String, ArrayList<String>>();		// the hashtable which saves the relationship between candidate proteins and identified peptides
 	static Hashtable<String, Integer>           distinct_protein_pos = new Hashtable<String, Integer>();	// the hashtable of protein names
-	static Hashtable<String, Hashtable<String, String>> detectability = new Hashtable<String, Hashtable<String, String>>();			// the hashtable which stores the information in the peptide detectability file
+	static Hashtable<String, Hashtable<String, Double>> detectability = new Hashtable<String, Hashtable<String, Double>>();			// the hashtable which stores the information in the peptide detectability file
 	static Hashtable<String, Double> protein_detect = new Hashtable<String, Double>();			// the hashtable which stores [the median(predicted detectability scores from the same parent protein)/3] for each protein
 
 	public int get_proteinNum(){
@@ -89,7 +90,7 @@ public class ProteinLasso {
 				  //load the protein information
 				    int counter = 0;
 				    int seq_id=0;
-				    peptide_prob = new Hashtable<String, ArrayList<String>>(peptide_num);
+				    peptide_prob = new Hashtable<String, ArrayList<Double>>(peptide_num);
 			    	row_it = data_table.iterator();
 			    	while (row_it.hasNext()) {
 			    		
@@ -98,7 +99,6 @@ public class ProteinLasso {
 			    		DataCell pep_cell = r.getCell(ProteinLassoNodeModel.pep_idx);
 			    		DataCell accsn_cell= r.getCell(ProteinLassoNodeModel.accsn_idx);
 			    		DataCell proba_cell= r.getCell(ProteinLassoNodeModel.proba_idx);
-			    		//DataCell detect_cell= r.getCell(ProteinLassoNodeModel.detect_idx);
 			    		
 			    		
 			    		// rows with missing cells cannot be processed (no missing values in PSM graph...)
@@ -109,17 +109,15 @@ public class ProteinLasso {
 			    		//getting value from cells
 			    		String peptide_entry   =   ((StringValue)pep_cell).getStringValue();
 			    		String protein_accsn   =   ((StringValue)accsn_cell).getStringValue();
-			    		String proba_entry     =   ((StringValue) proba_cell).getStringValue();
-			    		//String detect_entry    =   ((StringValue) detect_cell).getStringValue();
+			    		Double proba_entry     =   ((DoubleValue) proba_cell).getDoubleValue();
 			    		
 			    		seq_id = (Integer)distinct_peptide.get(peptide_entry);
-			    		ArrayList<String> prob=(ArrayList<String>)peptide_prob.get(peptide_entry);//peptide_prob hashtable stores all the probabilities corresponding to a peptide.
+			    		ArrayList<Double> prob = peptide_prob.get(peptide_entry);//peptide_prob hashtable stores all the probabilities corresponding to a peptide.
 				    	if(prob==null){
-				    		prob= new ArrayList<String>();
+				    		prob = new ArrayList<Double>();
 				    		prob.add(proba_entry);
-				    		peptide_prob.put(peptide_entry,prob);
-				    	}
-				    	else{
+				    		peptide_prob.put(peptide_entry, prob);
+				    	} else {
 				    		prob.add(proba_entry);
 				    	}
 				    	
@@ -191,52 +189,52 @@ public class ProteinLasso {
 	    		DataRow r = row_it.next();
 	    		DataCell pep_cell     = r.getCell(ProteinLassoNodeModel.pep_idx);
 	    		DataCell accsn_cell   = r.getCell(ProteinLassoNodeModel.accsn_idx);
-	    		DataCell proba_cell   = r.getCell(ProteinLassoNodeModel.proba_idx);
 	    		DataCell detect_cell  = r.getCell(ProteinLassoNodeModel.detect_idx);
 	    		
 	    		
 	    		//rows with missing cells cannot be processed (no missing values in PSM graph...)
-	    		if (pep_cell.isMissing() || accsn_cell.isMissing() || proba_cell.isMissing()) {
+	    		if (pep_cell.isMissing() || accsn_cell.isMissing() || detect_cell.isMissing()) {
 	    			continue;
 	    		}
 	    		
 	    		//getting value from cells
 	    		String peptide_entry   =   ((StringValue) pep_cell).getStringValue();
 	    		String protein_accsn   =   ((StringValue) accsn_cell).getStringValue();
-	    		String detect_entry    =   ((StringValue) detect_cell).getStringValue();
+	    		Double detect_entry    =   ((DoubleValue)detect_cell).getDoubleValue();
 	    		 
 	    		String [] protein_group = protein_accsn.split(";");
 	    		 
 	    		for(int i = 0; i < protein_group.length; i++){				
 	    	
-	    		   Hashtable<String, String> pt = (Hashtable<String, String>)detectability.get(formattedProteinAccesion(protein_group[i]));//the hashable stores all the information in the detectability file
+	    		   Hashtable<String, Double> pt = detectability.get(formattedProteinAccesion(protein_group[i]));//the hashable stores all the information in the detectability file
 				    if(pt==null){
-				    	pt = new Hashtable<String, String>();
-				    	pt.put(peptide_entry,detect_entry);
+				    	pt = new Hashtable<String, Double>();
+				    	pt.put(peptide_entry, detect_entry);
 				    	detectability.put(formattedProteinAccesion(protein_group[i]), pt);	
 				    }else{
 				    	if(pt.get(peptide_entry)==null){
-				    		pt.put(peptide_entry,detect_entry);
-				    	}
-				    	else {//if there are two detectabilities for a peptide, we choose the bigger detectability.
-				    		if(Double.parseDouble(detect_entry)>Double.parseDouble((String)pt.get(peptide_entry))){					    			}
 				    		pt.put(peptide_entry, detect_entry);
+				    	} else {//if there are two detectabilities for a peptide, we choose the bigger detectability.
+				    		if(detect_entry > pt.get(peptide_entry)) {
+				    			pt.put(peptide_entry, detect_entry);
+				    		}
 				    	}
 				     }
 	    		  }     
 	    	   }
 			     
 				//protein_detect stores [the median(predicted detectability scores from the same parent protein)/3] for each protein
-				protein_detect = new Hashtable<String, Double>(detectability.size());   	
+				protein_detect = new Hashtable<String, Double>(detectability.size());
 				for(Iterator<String> h = detectability.keySet().iterator();h.hasNext(); ){
 					 String key = (String) h.next();
 					 boolean mark=false;
-					 Hashtable<?, ?> dt = (Hashtable<?, ?>)detectability.get(key);
+					 
+					 Hashtable<String, Double> dt = detectability.get(key);
 					 double[] detect_temp = new double[dt.size()];
 					 int i=0;
-					 for(Iterator<?> d = dt.keySet().iterator();d.hasNext(); ){
+					 for(Iterator<String> d = dt.keySet().iterator();d.hasNext(); ){
 						 String peptideseq = (String) d.next();
-						 double detect=Double.parseDouble((String)dt.get(peptideseq));
+						 double detect = dt.get(peptideseq);
 						 detect_temp[i] = detect;
 						 i++;
 					 }
@@ -277,19 +275,19 @@ public class ProteinLasso {
 		//assign the peptide probabilities to array Y;
 		//If there are multiple probabilities for a peptide, user can choose the average or maximal value or the constant "1" as the final probability. 
 		for(int j=0;j<totalPeptides;j++){	
-			ArrayList<String> arl = (ArrayList<String>)peptide_prob.get(peptideSeq[j]);
+			ArrayList<Double> arl = peptide_prob.get(peptideSeq[j]);
 			if(tag.equals("average")){
 				peptideprob=0;
 				for(int i=0;i<arl.size();i++){
-					peptideprob=peptideprob+Double.parseDouble((String)arl.get(i));
+					peptideprob = peptideprob + arl.get(i);
 				}
         		Y[j]=peptideprob/arl.size();
 			}
 			else if(tag.equals("max")){
-				peptideprob=Double.parseDouble((String)arl.get(0));
+				peptideprob = arl.get(0);
 				for(int i=0;i<arl.size();i++){
-					if(peptideprob<Double.parseDouble((String)arl.get(i))){
-						peptideprob=Double.parseDouble((String)arl.get(i));
+					if(peptideprob < arl.get(i)){
+						peptideprob = arl.get(i);
 					}
 				}
 				Y[j]=peptideprob;
@@ -304,17 +302,17 @@ public class ProteinLasso {
 			 String key = (String) h.next();
 			 boolean mark=false;
 			 int pos = ((Integer)distinct_protein_pos.get(key)).intValue();
-			 Hashtable<?, ?> dt=(Hashtable<?, ?>)detectability.get(key);
+			 Hashtable<String, Double> dt = detectability.get(key);
 			 if(dt!=null){
-				 	ArrayList<?> al= (ArrayList<?>)distinct_protein.get(key);
+				 	ArrayList<String> al = distinct_protein.get(key);
 					for(int i=0;i<al.size();i++){
 						mark=false;
-						String peptideseq=(String)al.get(i);
+						String peptideseq= al.get(i);
 						int num = ((Integer)distinct_peptide.get(peptideseq)).intValue();
 						int repeat = 0;
 						String peptide_temp = "";
 						if(dt.get(peptideseq)!=null){
-							 double detect=Double.parseDouble((String)dt.get(peptideseq));
+							 double detect = dt.get(peptideseq);
 				    		 X[num][pos]= detect;
 				    		 mark=true;
 				    		 count++;
@@ -327,17 +325,17 @@ public class ProteinLasso {
 								 //if there are two longest peptide sequence containing the identified peptide sequence, we choose the higher detectability.
 								 if(repeat == 1){
 									 peptide_temp=peptideseq_candidate;
-									 double detect=Double.parseDouble((String)dt.get(peptideseq_candidate));
+									 double detect = dt.get(peptideseq_candidate);
 						    		 X[num][pos]= detect;
 								 }
 								 else {
 									 if(peptide_temp.length()<peptideseq_candidate.length()){
 										 peptide_temp=peptideseq_candidate;
-										 double detect=Double.parseDouble((String)dt.get(peptideseq_candidate));
+										 double detect = dt.get(peptideseq_candidate);
 							    		 X[num][pos]= detect;
 									 }
 									 else  if(peptide_temp.length()==peptideseq_candidate.length()){
-										 		double detect=Double.parseDouble((String)dt.get(peptideseq_candidate));
+										 		double detect = dt.get(peptideseq_candidate);
 										 		if(X[num][pos]<detect){
 										 			peptide_temp=peptideseq_candidate;
 										 			X[num][pos]= detect;
@@ -392,9 +390,9 @@ public class ProteinLasso {
 		for(int m=0;m<totalProteins;m++){
 			for(int i=m;i<totalProteins;i++){
 				X_inter_product[m][i] = 0;
-				Hashtable<?, ?> xh_m = (Hashtable<?, ?>)X_hash.get(m);
-				Hashtable<?, ?> xh_i = (Hashtable<?, ?>)X_hash.get(i);
-				for(Iterator<?> h =xh_m.keySet().iterator();h.hasNext();){
+				Hashtable<Integer, Double> xh_m = X_hash.get(m);
+				Hashtable<Integer, Double> xh_i = X_hash.get(i);
+				for(Iterator<Integer> h =xh_m.keySet().iterator();h.hasNext();){
 					 int key = Integer.parseInt(h.next().toString());
 					 double detect_m= Double.parseDouble(xh_m.get(key).toString());
 					 if(xh_i.get(key)!=null){

@@ -1,6 +1,7 @@
 package uni.tubingen.inference.proteinlasso;
 
 import org.knime.core.data.DataColumnSpec;
+import org.knime.core.data.DoubleValue;
 import org.knime.core.data.StringValue;
 import org.knime.core.node.defaultnodesettings.DefaultNodeSettingsPane;
 import org.knime.core.node.defaultnodesettings.DialogComponentColumnNameSelection;
@@ -62,10 +63,10 @@ public class ProteinLassoNodeDialog extends DefaultNodeSettingsPane {
         							}
                 			
                 		}));
-                 addDialogComponent(new DialogComponentColumnNameSelection(probabilities, "Probabilities", 0, true, StringValue.class));
-                 addDialogComponent(new DialogComponentColumnNameSelection(detectability, "Detectability", 0, true, StringValue.class));
+                 addDialogComponent(new DialogComponentColumnNameSelection(probabilities, "Probabilities", 0, true, DoubleValue.class));
+                 addDialogComponent(new DialogComponentColumnNameSelection(detectability, "Detectability", 0, true, DoubleValue.class));
                 
-                 addDialogComponent(new DialogComponentNumber(new SettingsModelDoubleBounded(ProteinLassoNodeModel.CFGKEY_LAMMDA_PARAMETER, 0.5, 0.05, 1.0),  "lammda",  0.5));
+                 addDialogComponent(new DialogComponentNumber(new SettingsModelDoubleBounded(ProteinLassoNodeModel.CFGKEY_LAMMDA_PARAMETER, 0.5, 0.0, 1.0),  "lammda",  0.01));
 
     }
 }
