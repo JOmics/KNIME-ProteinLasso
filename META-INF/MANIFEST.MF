@@ -4,12 +4,7 @@ Bundle-Name: ProteinLasso-Node extension for KNIME Workbench
 Bundle-SymbolicName: uni.tubingen.inference.proteinlasso; singleton:=true
 Bundle-Version: 1.0.0
 Bundle-ClassPath: proteinlasso.jar,
- lib/base64.jar,
- lib/danby.jar,
- lib/glpk.jar,
- lib/netcdf.jar,
- lib/weka.jar,
- lib/commons-lang3-3.3.2.jar
+ lib/weka.jar
 Bundle-Activator: uni.tubingen.inference.proteinlasso.ProteinLassoNodePlugin
 Bundle-Vendor: enrique
 Require-Bundle: org.eclipse.core.runtime,
