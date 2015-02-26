@@ -10,7 +10,6 @@ import org.knime.core.data.RowIterator;
 import org.knime.core.data.RowKey;
 import org.knime.core.data.StringValue;
 import org.knime.core.data.def.DefaultRow;
-import org.knime.core.data.def.DoubleCell;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.node.BufferedDataContainer;
 import org.knime.core.node.BufferedDataTable;
@@ -35,12 +34,12 @@ public class ProteinLasso {
 	public String[] peptideSeq;			// the array of peptide sequences
 	
 	
-	static Hashtable<String, Integer>           distinct_peptide = new Hashtable<String, Integer>();		// the hashtable of peptide sequences
-	static Hashtable<String, ArrayList<Double>> peptide_prob = new Hashtable<String, ArrayList<Double>>();			// the hashtable of peptide probabilities 
-	static Hashtable<String, ArrayList<String>> distinct_protein = new Hashtable<String, ArrayList<String>>();		// the hashtable which saves the relationship between candidate proteins and identified peptides
-	static Hashtable<String, Integer>           distinct_protein_pos = new Hashtable<String, Integer>();	// the hashtable of protein names
-	static Hashtable<String, Hashtable<String, Double>> detectability = new Hashtable<String, Hashtable<String, Double>>();			// the hashtable which stores the information in the peptide detectability file
-	static Hashtable<String, Double> protein_detect = new Hashtable<String, Double>();			// the hashtable which stores [the median(predicted detectability scores from the same parent protein)/3] for each protein
+	private Hashtable<String, Integer>           distinct_peptide = new Hashtable<String, Integer>();		// the hashtable of peptide sequences
+	private Hashtable<String, ArrayList<Double>> peptide_prob = new Hashtable<String, ArrayList<Double>>();			// the hashtable of peptide probabilities 
+	private Hashtable<String, ArrayList<String>> distinct_protein = new Hashtable<String, ArrayList<String>>();		// the hashtable which saves the relationship between candidate proteins and identified peptides
+	private Hashtable<String, Integer>           distinct_protein_pos = new Hashtable<String, Integer>();	// the hashtable of protein names
+	private Hashtable<String, Hashtable<String, Double>> detectability = new Hashtable<String, Hashtable<String, Double>>();			// the hashtable which stores the information in the peptide detectability file
+	private Hashtable<String, Double> protein_detect = new Hashtable<String, Double>();			// the hashtable which stores [the median(predicted detectability scores from the same parent protein)/3] for each protein
 
 	public int get_proteinNum(){
 		return protein_num;
@@ -126,18 +125,6 @@ public class ProteinLasso {
 			    		
 				      for(int i = 0; i < protein_group.length; i++){
  				    
-				    //this block is for formatting string protein ID
-                       /* if(protein_group[i].contains("|")){		
-					    	int firstLine = protein_group[i].indexOf("|");
-					    	int lastLine = protein_group[i].indexOf("|",firstLine+1);
-					    	if(lastLine==-1){
-					    		if(!protein_group[i].contains("gi|")){
-					    			protein_group[i] = protein_group[i].substring(0,firstLine);
-					    		}
-					    	}
-					    	else protein_group[i] = protein_accsn.substring(firstLine+1,lastLine);
-				    	  }*/
-				    	
 					    ArrayList<String> pt = (ArrayList<String>)distinct_protein.get(formattedProteinAccesion(protein_group[i]));//the hashtable stores the relationship between candidate proteins and identified peptides.
 					    if(pt==null){
 					    	pt = new ArrayList<String>();
@@ -457,14 +444,13 @@ public class ProteinLasso {
 		catch (Exception x){
 			x.printStackTrace(System.err);
 	    }
-	    finally{
-	    	return coef;
-	    }
+	    
+	    return coef;
 	}
 	
 	
 	//print the proteins and their probabilities in descending order.
-	public void writteContainer (BufferedDataContainer container, double[] Probability){
+	public void writeContainer (BufferedDataContainer container, double[] Probability){
 		
 	    try{
 	    	
@@ -485,13 +471,11 @@ public class ProteinLasso {
     		cells[1] = new StringCell(String.valueOf ((Double)Probability[pos[bestIndex]]));
     		DataRow row = new DefaultRow(key, cells);
     		container.addRowToTable(row);
-			System.out.println(proteinNames[pos[bestIndex]]+'\t'+Probability[pos[bestIndex]]);
-			
+			//System.out.println(proteinNames[pos[bestIndex]]+'\t'+Probability[pos[bestIndex]]);
 		 }	
+	   } catch (Exception x) {
+		   x.printStackTrace(System.err);
 	   }
-		catch (Exception x){
-			x.printStackTrace(System.err);
-	    }
 	}
      
 	//this function is for formatting long protein name (getting universal ID...)

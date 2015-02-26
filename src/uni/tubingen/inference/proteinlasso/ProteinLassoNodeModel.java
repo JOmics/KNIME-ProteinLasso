@@ -2,15 +2,10 @@ package uni.tubingen.inference.proteinlasso;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.StringTokenizer;
 
-import org.knime.core.data.DataCell;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataColumnSpecCreator;
-import org.knime.core.data.DataRow;
 import org.knime.core.data.DataTableSpec;
-import org.knime.core.data.RowIterator;
-import org.knime.core.data.StringValue;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.node.BufferedDataContainer;
 import org.knime.core.node.BufferedDataTable;
@@ -54,9 +49,6 @@ public class ProteinLassoNodeModel extends NodeModel {
 	static int proba_idx  = 0;
 	static int detect_idx = 0;
 	
-	static BufferedDataContainer container = null;
-	
-
 	/**
      * Constructor for the node model.
      */
@@ -76,7 +68,7 @@ public class ProteinLassoNodeModel extends NodeModel {
          this.checkTableConfiguraion(inData);
          
          DataTableSpec new_spec_table = new DataTableSpec(make_output_spec());  	
-         container = exec.createDataContainer(new_spec_table);
+         BufferedDataContainer container = exec.createDataContainer(new_spec_table);
          
          int K= 100;//We choose 100 points between the maximal lamda value and the minimal lamda value.
 		 double DECAY = 0.001;
@@ -121,7 +113,7 @@ public class ProteinLassoNodeModel extends NodeModel {
 				coef[j]=coef[j]/100;
 		 }	 
 		 
-		 prolas.writteContainer(container, coef);
+		 prolas.writeContainer(container, coef);
 		 
 	     double endTime = System.currentTimeMillis();
 		 double running_time = (endTime-startTime)/(double)1000;	
