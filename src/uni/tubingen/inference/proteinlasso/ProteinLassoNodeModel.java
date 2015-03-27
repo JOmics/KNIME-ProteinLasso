@@ -70,7 +70,7 @@ public class ProteinLassoNodeModel extends NodeModel {
          DataTableSpec new_spec_table = new DataTableSpec(make_output_spec());  	
          BufferedDataContainer container = exec.createDataContainer(new_spec_table);
          
-         int K= 100;//We choose 100 points between the maximal lamda value and the minimal lamda value.
+         int K= 100; //We choose 100 points between the maximal lamda value and the minimal lamda value.
 		 double DECAY = 0.001;
 		 double startTime = System.currentTimeMillis();
 
@@ -89,9 +89,9 @@ public class ProteinLassoNodeModel extends NodeModel {
 		 System.out.println("The minimal value of lamda="+lamda_min);
 		 
 		 
-		 double lamda=lamda_max;	 
-	     double[] result=new double[totalProteins];
-		 double[] coef=new double[totalProteins];
+		 double lamda = lamda_max;	 
+	     double[] result = new double[totalProteins];
+		 double[] coef = new double[totalProteins];
 		 for(int j= 0; j<totalProteins; j++){
 			 result[j]=0;
 			 coef[j]=0;
@@ -102,7 +102,7 @@ public class ProteinLassoNodeModel extends NodeModel {
 			lamda = Math.log(lamda_max)-((double)i*(Math.log(lamda_max)-Math.log(lamda_min)))/(double)K;
 			lamda = Math.pow(Math.E,lamda)*0.5;
 			//System.out.println("lamda="+lamda);
-			result=prolas.Coordinate_Descent(result,lamda);
+			result = prolas.Coordinate_Descent(result, lamda);
 	    	for(int j= 0; j<totalProteins; j++){
 	    		coef[j] = coef[j] + result[j];
 	    	}
