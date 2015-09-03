@@ -1,8 +1,11 @@
 package uni.tubingen.inference.proteinlasso;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Set;
+
 import org.knime.core.data.DataCell;
 import org.knime.core.data.DataRow;
 import org.knime.core.data.DoubleValue;
@@ -10,6 +13,8 @@ import org.knime.core.data.RowIterator;
 import org.knime.core.data.RowKey;
 import org.knime.core.data.StringValue;
 import org.knime.core.data.def.DefaultRow;
+import org.knime.core.data.def.DoubleCell;
+import org.knime.core.data.def.IntCell;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.node.BufferedDataContainer;
 import org.knime.core.node.BufferedDataTable;
@@ -20,27 +25,31 @@ import org.apache.commons.lang3.StringUtils;
 
 
 public class ProteinLasso {
-
-	double lamda; 						//the penalty parameter lamda
-	double lamda_max;					// the maximal value of lamda
-	double lamda_min;					// the maximal value of lamda
-	int protein_num, peptide_num;		// the number of candidate proteins and identified peptides in the bipartite graph
-	public double[][] X;				// peptide detectability matrix
-	public double[] Y;					// peptide probablity vector
-	public double[] coef;				// protein probablity vector
-	public double[] inter_product;		// the inter product of vector X_j and Y
-	public double[][] X_inter_product;	// the inter product of vector X_j and X_K
-	public String[] proteinNames;		// the array of protein names
-	public String[] peptideSeq;			// the array of peptide sequences
 	
+	private double lambda; 					//the penalty parameter lambda
+	private double lambda_max;				// the maximal value of lambda
+	private int protein_num, peptide_num;	// the number of candidate proteins and identified peptides in the bipartite graph
+	public double[][] X;					// peptide detectability matrix
+	public double[] Y;						// peptide probablity vector
+	public double[] coef;					// protein probablity vector
+	public double[] inter_product;			// the inter product of vector X_j and Y
+	public double[][] X_inter_product;		// the inter product of vector X_j and X_K
+	public String[] proteinNames;			// the array of protein names
+	public String[] peptideSeq;				// the array of peptide sequences
 	
-	private Hashtable<String, Integer>           distinct_peptide = new Hashtable<String, Integer>();		// the hashtable of peptide sequences
-	private Hashtable<String, ArrayList<Double>> peptide_prob = new Hashtable<String, ArrayList<Double>>();			// the hashtable of peptide probabilities 
-	private Hashtable<String, ArrayList<String>> distinct_protein = new Hashtable<String, ArrayList<String>>();		// the hashtable which saves the relationship between candidate proteins and identified peptides
-	private Hashtable<String, Integer>           distinct_protein_pos = new Hashtable<String, Integer>();	// the hashtable of protein names
-	private Hashtable<String, Hashtable<String, Double>> detectability = new Hashtable<String, Hashtable<String, Double>>();			// the hashtable which stores the information in the peptide detectability file
-	private Hashtable<String, Double> protein_detect = new Hashtable<String, Double>();			// the hashtable which stores [the median(predicted detectability scores from the same parent protein)/3] for each protein
-
+	/** the hashtable of peptide sequences */
+	private Hashtable<String, Integer> distinct_peptide = new Hashtable<String, Integer>();
+	/** the hashtable of peptide probabilities */
+	private Hashtable<String, ArrayList<Double>> peptide_prob = new Hashtable<String, ArrayList<Double>>();
+	/** the hashtable which saves the relationship between candidate proteins and identified peptides */
+	private Hashtable<String, ArrayList<String>> distinct_protein = new Hashtable<String, ArrayList<String>>();
+	/** the hashtable of protein names */
+	private Hashtable<String, Integer> distinct_protein_pos = new Hashtable<String, Integer>();
+	/** the hashtable which stores the information in the peptide detectability file */
+	private Hashtable<String, Hashtable<String, Double>> detectability = new Hashtable<String, Hashtable<String, Double>>();
+	/** the hashtable which stores [the median(predicted detectability scores from the same parent protein)/3] for each protein */
+	private Hashtable<String, Double> protein_detect = new Hashtable<String, Double>();
+	
 	public int get_proteinNum(){
 		return protein_num;
 	}
@@ -49,123 +58,113 @@ public class ProteinLasso {
 		return peptide_num;
 	}
 	
-	public double get_Lamda_max(){
-		return lamda_max;
+	public double get_Lambda_max(){
+		return lambda_max;
 	}
 	
 	
-	
-	//load the information in the peptide identification file
+	/**
+	 * load the information in the peptide identification file
+	 * @param data_table
+	 */
 	public void buildPeptideFile(BufferedDataTable data_table){
-	    try{
-	    	
-	    		 //load the peptide sequences;
-	    	RowIterator row_it = data_table.iterator();
-	    	while (row_it.hasNext()) {
-	    		
-	     		//getting information from current row...
-	    		DataRow r = row_it.next();
-	    		DataCell pep_cell = r.getCell(ProteinLassoNodeModel.pep_idx);
-	    		
-	    		
-	    		// rows with missing cells cannot be processed (no missing values in PSM graph...)
-	    		if (pep_cell.isMissing()) {
-	    			continue;
-	    		}
-	    		
-	    		//getting value from cells
-	    		String peptide_entry  =  ((StringValue) pep_cell).getStringValue();
-	    	
-				    		Integer po = (Integer)distinct_peptide.get(peptide_entry);//the hashtable stores all the peptide sequences.
-					    	if (po == null){
-					    		int pos = distinct_peptide.size();
-					    		distinct_peptide.put(peptide_entry, new Integer(pos));
-					    	}
-			   }
-				    peptide_num = distinct_peptide.size();
-				   
-				    
-				    
-				  //load the protein information
-				    int counter = 0;
-				    int seq_id=0;
-				    peptide_prob = new Hashtable<String, ArrayList<Double>>(peptide_num);
-			    	row_it = data_table.iterator();
-			    	while (row_it.hasNext()) {
-			    		
-			     		//getting information from current row...
-			    		DataRow r = row_it.next();
-			    		DataCell pep_cell = r.getCell(ProteinLassoNodeModel.pep_idx);
-			    		DataCell accsn_cell= r.getCell(ProteinLassoNodeModel.accsn_idx);
-			    		DataCell proba_cell= r.getCell(ProteinLassoNodeModel.proba_idx);
-			    		
-			    		
-			    		// rows with missing cells cannot be processed (no missing values in PSM graph...)
-			    		if (pep_cell.isMissing() || accsn_cell.isMissing() || proba_cell.isMissing()) {
-			    			continue;
-			    		}
-			    		
-			    		//getting value from cells
-			    		String peptide_entry   =   ((StringValue)pep_cell).getStringValue();
-			    		String protein_accsn   =   ((StringValue)accsn_cell).getStringValue();
-			    		Double proba_entry     =   ((DoubleValue) proba_cell).getDoubleValue();
-			    		
-			    		seq_id = (Integer)distinct_peptide.get(peptide_entry);
-			    		ArrayList<Double> prob = peptide_prob.get(peptide_entry);//peptide_prob hashtable stores all the probabilities corresponding to a peptide.
-				    	if(prob==null){
-				    		prob = new ArrayList<Double>();
-				    		prob.add(proba_entry);
-				    		peptide_prob.put(peptide_entry, prob);
-				    	} else {
-				    		prob.add(proba_entry);
-				    	}
-				    	
-				    	//deal with protein names in the peptide identification file so that these protein names can match with those in the peptide detectability file.
-				    	String [] protein_group = protein_accsn.split(";");
-			    		
-				      for(int i = 0; i < protein_group.length; i++){
- 				    
-					    ArrayList<String> pt = (ArrayList<String>)distinct_protein.get(formattedProteinAccesion(protein_group[i]));//the hashtable stores the relationship between candidate proteins and identified peptides.
-					    if(pt==null){
-					    	pt = new ArrayList<String>();
-					    	pt.add(peptide_entry);
-					    	distinct_protein.put(formattedProteinAccesion(protein_group[i]), pt);
-					    	int pt_pos = distinct_protein_pos.size();//the hashtable stores all the proteins.
-					    	distinct_protein_pos.put(formattedProteinAccesion(protein_group[i]), new Integer(pt_pos));		
-					    }else{
-					    	if(!pt.contains(peptide_entry)){
-					    	pt.add(peptide_entry);	
-					    	}
-					    }
-			    	  }
-			    	}
-			    	
-				    
-				    protein_num = distinct_protein.size();
-				    
-				    //
-				    peptideSeq = new String[peptide_num];
-				    for(Iterator<String> h = distinct_peptide.keySet().iterator();h.hasNext(); ){
-						 String key = (String) h.next();
-						 int pos = ((Integer)distinct_peptide.get(key)).intValue();
-						 peptideSeq[pos] = key;
+		try{
+			// load the peptide sequences;
+			RowIterator row_it = data_table.iterator();
+			while (row_it.hasNext()) {
+				// getting information from current row...
+				DataRow r = row_it.next();
+				DataCell pep_cell = r.getCell(ProteinLassoNodeModel.pep_idx);
+				
+				// rows with missing cells cannot be processed (no missing values in PSM graph...)
+				if (pep_cell.isMissing()) {
+					continue;
+				}
+				
+				// getting value from cells
+				String peptide_entry  =  ((StringValue) pep_cell).getStringValue();
+				
+				Integer po = (Integer)distinct_peptide.get(peptide_entry); //the hashtable stores all the peptide sequences.
+				if (po == null) {
+					int pos = distinct_peptide.size();
+					distinct_peptide.put(peptide_entry, new Integer(pos));
+				}
+			}
+			
+			peptide_num = distinct_peptide.size();
+			
+			// load the protein information
+			peptide_prob = new Hashtable<String, ArrayList<Double>>(peptide_num);
+			row_it = data_table.iterator();
+			while (row_it.hasNext()) {
+				// getting information from current row...
+				DataRow r = row_it.next();
+				DataCell pep_cell = r.getCell(ProteinLassoNodeModel.pep_idx);
+				DataCell accsn_cell= r.getCell(ProteinLassoNodeModel.accsn_idx);
+				DataCell proba_cell= r.getCell(ProteinLassoNodeModel.proba_idx);
+				
+				// rows with missing cells cannot be processed (no missing values in PSM graph...)
+				if (pep_cell.isMissing() || accsn_cell.isMissing() || proba_cell.isMissing()) {
+					continue;
+				}
+				
+				// getting value from cells
+				String peptide_entry = ((StringValue)pep_cell).getStringValue();
+				String protein_accsn = ((StringValue)accsn_cell).getStringValue();
+				Double proba_entry   = ((DoubleValue) proba_cell).getDoubleValue();
+				
+				ArrayList<Double> prob = peptide_prob.get(peptide_entry);//peptide_prob hashtable stores all the probabilities corresponding to a peptide.
+				if(prob==null) {
+					prob = new ArrayList<Double>();
+					prob.add(proba_entry);
+					peptide_prob.put(peptide_entry, prob);
+				} else {
+					prob.add(proba_entry);
+				}
+				
+				// deal with protein names in the peptide identification file so that these protein names can match with those in the peptide detectability file.
+				String [] protein_group = protein_accsn.split(";");
+				
+				for(int i = 0; i < protein_group.length; i++) {
+					ArrayList<String> pt = (ArrayList<String>)distinct_protein.get(formattedProteinAccesion(protein_group[i]));//the hashtable stores the relationship between candidate proteins and identified peptides.
+					if(pt==null) {
+						pt = new ArrayList<String>();
+						pt.add(peptide_entry);
+						distinct_protein.put(formattedProteinAccesion(protein_group[i]), pt);
+						distinct_protein_pos.put(formattedProteinAccesion(protein_group[i]), distinct_protein_pos.size());
+					} else {
+						if(!pt.contains(peptide_entry)) {
+							pt.add(peptide_entry);
+						}
 					}
-					
-				    proteinNames = new String[protein_num];
-					for(Iterator<String> h = distinct_protein.keySet().iterator();h.hasNext(); ){
-						 String key = (String) h.next();
-						 int pos = ((Integer)distinct_protein_pos.get(key)).intValue();
-						 proteinNames[pos] = key;
-					}
-					
-	    }catch (Exception x){
-	    	x.printStackTrace(System.err);
-	    }
+				}
+			}
+			
+			protein_num = distinct_protein.size();
+			
+			peptideSeq = new String[peptide_num];
+			for(Iterator<String> h = distinct_peptide.keySet().iterator(); h.hasNext(); ) {
+				String key = (String) h.next();
+				int pos = ((Integer)distinct_peptide.get(key)).intValue();
+				peptideSeq[pos] = key;
+			}
+			
+			proteinNames = new String[protein_num];
+			for (Iterator<String> h = distinct_protein.keySet().iterator(); h.hasNext(); ) {
+				String key = (String) h.next();
+				int pos = ((Integer)distinct_protein_pos.get(key)).intValue();
+				proteinNames[pos] = key;
+			}
+		} catch (Exception x) {
+			ProteinLassoNodeModel.logger.error(x);
+		}
 	}
-	    
 	
 	
-	//load the information in the peptide detectability file
+	/**
+	 * load the information in the peptide detectability file
+	 * @param data_table
+	 */
 	public void buildDetectabilityFile(BufferedDataTable data_table){
 	    
 		try{			
@@ -214,7 +213,6 @@ public class ProteinLasso {
 				protein_detect = new Hashtable<String, Double>(detectability.size());
 				for(Iterator<String> h = detectability.keySet().iterator();h.hasNext(); ){
 					 String key = (String) h.next();
-					 boolean mark=false;
 					 
 					 Hashtable<String, Double> dt = detectability.get(key);
 					 double[] detect_temp = new double[dt.size()];
@@ -232,7 +230,7 @@ public class ProteinLasso {
 				}	
 	    	}
 	    	catch (Exception x){
-	    		x.printStackTrace(System.err);
+	    		ProteinLassoNodeModel.logger.error(x);
 		    }
 	}
 
@@ -240,15 +238,12 @@ public class ProteinLasso {
 	
 	public void getcoef(String tag){
 		try{	
-	    int totalProteins=protein_num;
-	    int totalPeptides=peptide_num;
-	    System.out.println("The number of peptides:"+totalPeptides);
-	    System.out.println("The number of proteins:"+totalProteins);
+	    int totalProteins = protein_num;
+	    int totalPeptides = peptide_num;
 	    
 	    X_inter_product=new double[totalProteins][totalProteins];
 	    X=new double[totalPeptides][totalProteins];
 	    inter_product = new double[totalProteins];
-	    int number=0,count=0;
 	    for(int i=0;i<totalProteins;i++){
 			inter_product[i] = 0;
         	for(int j=0;j<totalPeptides;j++){
@@ -257,7 +252,6 @@ public class ProteinLasso {
         }
 		Y=new double[totalPeptides];
 		double peptideprob;
-		int counter=0;
 		
 		//assign the peptide probabilities to array Y;
 		//If there are multiple probabilities for a peptide, user can choose the average or maximal value or the constant "1" as the final probability. 
@@ -302,7 +296,6 @@ public class ProteinLasso {
 							 double detect = dt.get(peptideseq);
 				    		 X[num][pos]= detect;
 				    		 mark=true;
-				    		 count++;
 						}
 						else for(Iterator<?> d = dt.keySet().iterator();d.hasNext(); ){
 							 String peptideseq_candidate = (String) d.next();
@@ -331,19 +324,17 @@ public class ProteinLasso {
 								 		}
 					    		 mark=true;
 							 }
-							 if(repeat>0){
-								 count++;
-							 }
 						}	
 						//if we don't found a matching peptide in the detectability file for the identified peptide, we assign [the median(predicted detectability scores from the same parent protein)/3] to the peptide.
 						if(mark==false){
 							double detect = (Double)protein_detect.get(key);
 							X[num][pos]=detect;
-							number++;
 						}
 					}	
 			 	}
-			 	else System.out.println(key+"is not included in the detectability file!");
+			 	else {
+			 		ProteinLassoNodeModel.logger.warn(key + "is not included in the detectability file!");
+			 	}
 		}
 		
 		
@@ -370,10 +361,10 @@ public class ProteinLasso {
         		temp=inter_product[i];
         	}
         }	
-		lamda_max=2*temp;//calculate the maximal value of lamda
+		lambda_max=2*temp;//calculate the maximal value of lamda
 		
 		
-		//calculate and save the inter product of X_j and X_K for all the proteins.
+		// calculate and save the inter product of X_j and X_K for all the proteins.
 		for(int m=0;m<totalProteins;m++){
 			for(int i=m;i<totalProteins;i++){
 				X_inter_product[m][i] = 0;
@@ -393,103 +384,113 @@ public class ProteinLasso {
 		
 	}
 	catch (Exception x){
-	    x.printStackTrace(System.err);
+		ProteinLassoNodeModel.logger.error(x);
 	}
 	}
-
+	
+	
+	final static double ePowMinus5 = java.lang.Math.pow(Math.E,-5);
+	
 	
 	//the coordinate descent algorithm
-	public double[] Coordinate_Descent(double[] coef_original, double Lamda){
-	    try{
-		lamda=Lamda;
-		int i=0,j=0;
-		double y_j;
-
-		coef=new double[protein_num];//protein probability vector
-		double sum[]=new double[protein_num];
-
-		for(j=0;j<protein_num;j++){
-			coef[j] = coef_original[j];
-			for(i=0;i<peptide_num;i++){
-				sum[j]=sum[j]+X[i][j]*X[i][j];
-			}
-		}
-		
-		boolean hasUpdate = true;
-		while(hasUpdate){
-			hasUpdate = false;
+	public double[] Coordinate_Descent(double[] coef_original, double Lamda) {
+		try {
+			lambda=Lamda;
+			int i=0,j=0;
+			double y_j;
+	
+			coef = new double[protein_num];//protein probability vector
+			double sum[]=new double[protein_num];
+	
 			for(j=0;j<protein_num;j++){
-				y_j = 0;
-				for(i=0;i<protein_num;i++){
-					if(coef[i]!=0){
-						y_j = y_j +X_inter_product[j][i]*coef[i];
+				coef[j] = coef_original[j];
+				for(i=0;i<peptide_num;i++){
+					sum[j]=sum[j]+X[i][j]*X[i][j];
+				}
+			}
+			
+			boolean hasUpdate = true;
+			while(hasUpdate) {
+				hasUpdate = false;
+				
+				for(j = 0; j < protein_num; j++){
+					y_j = 0;
+					for(i = 0; i < protein_num; i++){
+						if(coef[i] != 0) {
+							y_j = y_j +X_inter_product[j][i]*coef[i];
+						}
+					}
+					
+					double y_j_temp = inter_product[j]+sum[j]*coef[j]-y_j;
+					double coef_j_temp = (y_j_temp-0.5*lambda)/sum[j];
+					if (coef_j_temp<0) {
+						coef_j_temp=0;
+					}
+					
+					if (coef_j_temp>1) {
+						coef_j_temp=1;
+					}
+					
+					if (Math.abs(coef[j]-coef_j_temp) > ePowMinus5) {
+						hasUpdate = true;
+						coef[j]=coef_j_temp;
 					}
 				}
-				double y_j_temp = inter_product[j]+sum[j]*coef[j]-y_j;
-				double coef_j_temp =(y_j_temp-0.5*lamda)/sum[j];
-				if(coef_j_temp<0){
-					coef_j_temp=0;
-				}
-				if(coef_j_temp>1)
-					coef_j_temp=1;
-				if(Math.abs(coef[j]-coef_j_temp)>java.lang.Math.pow(Math.E,-5)){
-					hasUpdate = true;
-					coef[j]=coef_j_temp;
-				}
 			}
-		}
-		
-		
-	    }
-		catch (Exception x){
-			x.printStackTrace(System.err);
+	    } catch (Exception x) {
+	    	ProteinLassoNodeModel.logger.error(x);
 	    }
 	    
 	    return coef;
 	}
 	
-	
-	//print the proteins and their probabilities in descending order.
-	public void writeContainer (BufferedDataContainer container, double[] Probability){
-		
-	    try{
-	    	
-		
-		int[] pos = weka.core.Utils.sort(Probability);
-		
-		System.out.println("------------------------------------------");
-		System.out.println("The ranked protein list reported by ProteinLasso:");
-		System.out.println("Protein name"+'\t'+"Protein probability");
-	
-		
-		for(int i=0;i<protein_num;i++){
-			int bestIndex = protein_num-i-1;
+	/**
+	 * print the proteins and their probabilities in descending order.
+	 * @param container
+	 * @param Probability
+	 */
+	public void writeContainer(BufferedDataContainer container, double[] Probability) {
+		try{
+			int[] pos = weka.core.Utils.sort(Probability);
 			
-			RowKey key = new RowKey(proteinNames[pos[bestIndex]]);
-            DataCell[] cells = new DataCell[2];	    		
-    		cells[0] = new StringCell(proteinNames[pos[bestIndex]]);
-    		cells[1] = new StringCell(String.valueOf ((Double)Probability[pos[bestIndex]]));
-    		DataRow row = new DefaultRow(key, cells);
-    		container.addRowToTable(row);
-			//System.out.println(proteinNames[pos[bestIndex]]+'\t'+Probability[pos[bestIndex]]);
-		 }	
-	   } catch (Exception x) {
-		   x.printStackTrace(System.err);
-	   }
+			for(int i=0;i<protein_num;i++) {
+				int bestIndex = protein_num-i-1;
+				
+				RowKey key = new RowKey(proteinNames[pos[bestIndex]]);
+				DataCell[] cells = new DataCell[4];
+				cells[0] = new StringCell(proteinNames[pos[bestIndex]]);
+				cells[1] = new DoubleCell(Probability[pos[bestIndex]]);
+				
+				Set<String> sequenceWithoutMods = new HashSet<String>();
+        		for (String modSeq : distinct_protein.get(proteinNames[pos[bestIndex]])) {
+        			sequenceWithoutMods.add(modSeq.replaceAll("\\([^\\)]+\\)", ""));
+        		}
+				
+				cells[2] = new IntCell(distinct_protein.get(proteinNames[pos[bestIndex]]).size());
+				cells[3] = new IntCell(sequenceWithoutMods.size());
+				
+				DataRow row = new DefaultRow(key, cells);
+				container.addRowToTable(row);
+			}
+		} catch (Exception x) {
+			ProteinLassoNodeModel.logger.error(x);
+		}
 	}
-     
-	//this function is for formatting long protein name (getting universal ID...)
+	
+	
+	/**
+	 * this function is for formatting long protein name (getting universal ID...)
+	 * @param protein_accn
+	 * @return
+	 */
 	static private String formattedProteinAccesion (String protein_accn){
-		      if(protein_accn.contains("|")){
-		    	  return StringUtils.substringBeforeLast(protein_accn, "|");
-		      }
-		      else if(protein_accn.contains(" ")){
-		    	  return protein_accn.trim();
-		      }
-		      else{
-		    	  return protein_accn; 
-		      }
-		  		
+		if(protein_accn.contains("|")){
+			return StringUtils.substringBeforeLast(protein_accn, "|");
+		} else if(protein_accn.contains(" ")) {
+			return protein_accn.trim();
+		} else {
+			return protein_accn;
+		}
 	}
 }
 

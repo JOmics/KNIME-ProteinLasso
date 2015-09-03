@@ -37,7 +37,7 @@ public class ProteinLassoNodeDialog extends DefaultNodeSettingsPane {
                 final SettingsModelString probabilities    = new SettingsModelString(ProteinLassoNodeModel.CFGKEY_PROBABILITIES, "Probabilities");
                 final SettingsModelString detectability    = new SettingsModelString(ProteinLassoNodeModel.CFGKEY_DETECTABILITY, "Detectabilities");
             
-            	final SettingsModelDouble lammda           = new SettingsModelDouble(ProteinLassoNodeModel.CFGKEY_LAMMDA_PARAMETER, 0.5);
+            	final SettingsModelDouble lammda           = new SettingsModelDouble(ProteinLassoNodeModel.CFGKEY_LAMBDA_PARAMETER, 0.5);
             	
             	
      
@@ -66,7 +66,7 @@ public class ProteinLassoNodeDialog extends DefaultNodeSettingsPane {
                  addDialogComponent(new DialogComponentColumnNameSelection(probabilities, "Probabilities", 0, true, DoubleValue.class));
                  addDialogComponent(new DialogComponentColumnNameSelection(detectability, "Detectability", 0, true, DoubleValue.class));
                 
-                 addDialogComponent(new DialogComponentNumber(new SettingsModelDoubleBounded(ProteinLassoNodeModel.CFGKEY_LAMMDA_PARAMETER, 0.5, 0.0, 1.0),  "lammda",  0.01));
+                 addDialogComponent(new DialogComponentNumber(new SettingsModelDoubleBounded(ProteinLassoNodeModel.CFGKEY_LAMBDA_PARAMETER, 0.5, 0.0, 1.0),  "lambda",  0.01));
 
     }
 }

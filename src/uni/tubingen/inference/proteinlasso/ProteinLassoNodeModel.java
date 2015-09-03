@@ -6,6 +6,8 @@ import java.io.IOException;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataColumnSpecCreator;
 import org.knime.core.data.DataTableSpec;
+import org.knime.core.data.def.DoubleCell;
+import org.knime.core.data.def.IntCell;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.node.BufferedDataContainer;
 import org.knime.core.node.BufferedDataTable;
@@ -28,20 +30,20 @@ import org.knime.core.node.defaultnodesettings.SettingsModelString;
  */
 public class ProteinLassoNodeModel extends NodeModel {
 	
-	private static final NodeLogger logger = NodeLogger.getLogger("ProteinLasso probabilities");
+	protected static final NodeLogger logger = NodeLogger.getLogger(ProteinLassoNodeModel.class);
     
     static String CFGKEY_PEPTIDES = "peptides";
 	static String CFGKEY_PROTEIN = "protein";
 	static String CFGKEY_PROBABILITIES = "probabilities";
 	static String CFGKEY_DETECTABILITY = "detectability";
-	static String CFGKEY_LAMMDA_PARAMETER = "lammda";
+	static String CFGKEY_LAMBDA_PARAMETER = "lambda";
 	
 	//fields to link execute variable with input variable...
 	private final SettingsModelString m_peptide_column = new SettingsModelString(CFGKEY_PEPTIDES, "Peptides");
 	private final SettingsModelString m_protein_column   = new SettingsModelString(CFGKEY_PROTEIN, "Protein");
 	private final SettingsModelString m_probability_column   = new SettingsModelString(CFGKEY_PROBABILITIES, "Probabilities");
 	private final SettingsModelString m_detectability_column   = new SettingsModelString(CFGKEY_PROBABILITIES, "Detectability");
-	private final SettingsModelDoubleBounded lammda_parameter = new SettingsModelDoubleBounded(CFGKEY_LAMMDA_PARAMETER, 0.9, 0.0, 1.0);
+	private final SettingsModelDoubleBounded lambda_parameter = new SettingsModelDoubleBounded(CFGKEY_LAMBDA_PARAMETER, 0.9, 0.0, 1.0);
 	
 	//fields to manage the input table...
 	static int pep_idx    = 0;
@@ -53,7 +55,6 @@ public class ProteinLassoNodeModel extends NodeModel {
      * Constructor for the node model.
      */
     protected ProteinLassoNodeModel() {
-    
         // TODO: Specify the amount of input and output ports needed.
         super(1, 1);
     }
@@ -82,24 +83,23 @@ public class ProteinLassoNodeModel extends NodeModel {
 		 String tag="max";
 		 prolas.getcoef(tag);
 	     int totalProteins = prolas.get_proteinNum();
-		 double lamda_max = prolas.get_Lamda_max();
-		 double lamda_min = lamda_max*DECAY; 
-		 System.out.println("------------------------------------------");
-		 System.out.println("The maximal value of lamda="+lamda_max);
-		 System.out.println("The minimal value of lamda="+lamda_min);
+		 double lambda_max = prolas.get_Lambda_max();
+		 double lambda_min = lambda_max*DECAY;
+		 logger.info("The maximal value of lambda=" + lambda_max);
+		 logger.info("The minimal value of lambda=" + lambda_min);
 		 
 		 
-		 double lamda = lamda_max;	 
+		 double lamda = lambda_max;	 
 	     double[] result = new double[totalProteins];
 		 double[] coef = new double[totalProteins];
 		 for(int j= 0; j<totalProteins; j++){
 			 result[j]=0;
 			 coef[j]=0;
 		 }
-			
+		 
 		 int i= 0;
 		 while(i<K){	
-			lamda = Math.log(lamda_max)-((double)i*(Math.log(lamda_max)-Math.log(lamda_min)))/(double)K;
+			lamda = Math.log(lambda_max)-((double)i*(Math.log(lambda_max)-Math.log(lambda_min)))/(double)K;
 			lamda = Math.pow(Math.E,lamda)*0.5;
 			//System.out.println("lamda="+lamda);
 			result = prolas.Coordinate_Descent(result, lamda);
@@ -117,9 +117,9 @@ public class ProteinLassoNodeModel extends NodeModel {
 		 
 	     double endTime = System.currentTimeMillis();
 		 double running_time = (endTime-startTime)/(double)1000;	
-		 System.out.println("Running Time:"+running_time);
+		 logger.info("Running Time:" + running_time);
          
-    
+		 
          container.close();
 
         // TODO: Return a BufferedDataTable for each output port 
@@ -141,15 +141,16 @@ public class ProteinLassoNodeModel extends NodeModel {
     	}
     }
     
- 
+    
     private DataColumnSpec[]  make_output_spec() {
-    	
-    	DataColumnSpec cols[] = new DataColumnSpec[2];
+    	DataColumnSpec cols[] = new DataColumnSpec[4];
     	cols[0] = new DataColumnSpecCreator("Protein ID", StringCell.TYPE).createSpec();
-    	cols[1] = new DataColumnSpecCreator("ProteinLasso Probability", StringCell.TYPE).createSpec();
-	
-      return cols;
-	}
+    	cols[1] = new DataColumnSpecCreator("ProteinLasso Probability", DoubleCell.TYPE).createSpec();
+    	cols[2] = new DataColumnSpecCreator("nrPeptidesMod", IntCell.TYPE).createSpec();
+    	cols[3] = new DataColumnSpecCreator("nrPeptides", IntCell.TYPE).createSpec();
+    	
+    	return cols;
+    }
     
 
     /**
@@ -181,7 +182,7 @@ public class ProteinLassoNodeModel extends NodeModel {
         m_protein_column.saveSettingsTo(settings);
         m_probability_column.saveSettingsTo(settings);
         m_detectability_column.saveSettingsTo(settings);       
-        lammda_parameter.saveSettingsTo(settings);
+        lambda_parameter.saveSettingsTo(settings);
          // TODO: generated method stub
     }
 
@@ -196,7 +197,7 @@ public class ProteinLassoNodeModel extends NodeModel {
         m_protein_column.loadSettingsFrom(settings);
         m_probability_column.loadSettingsFrom(settings);
         m_detectability_column.loadSettingsFrom(settings);       
-        lammda_parameter.loadSettingsFrom(settings);
+        lambda_parameter.loadSettingsFrom(settings);
     }
 
     /**
@@ -210,7 +211,7 @@ public class ProteinLassoNodeModel extends NodeModel {
         m_protein_column.validateSettings(settings);
         m_probability_column.validateSettings(settings);
         m_detectability_column.validateSettings(settings);       
-        lammda_parameter.validateSettings(settings);
+        lambda_parameter.validateSettings(settings);
     }
     
     /**
